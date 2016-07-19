@@ -219,6 +219,7 @@ void DataTransformer<Dtype>::Transform(const vector<cv::Mat> & mat_vector,
     Transform(mat_vector[item_id], &uni_blob);
   }
 }
+
 //data augmentation on-the-fly
 template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const cv::Mat& img,
@@ -230,7 +231,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
   const bool contrast_adjustment = param_.contrast_adjustment();
   const bool smooth_filtering = param_.smooth_filtering();
   const bool jpeg_compression = param_.jpeg_compression();
-
+  const int color_noise = param_.color_noise();
 
   const int img_channels = cv_img.channels();
   const int img_height = cv_img.rows;
@@ -413,6 +414,12 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
     } // end if(rotation_angle_interval == 90)
   } // end if ( rotation_angle_interval != 1 )
 
+  // random color noise
+  vector<Dtype> random_color_noise;
+  for (int c; c < img_channels; ++c) {
+    random_color_noise.push_back(Rand(2 * color_noise + 1) - color_noise); // -color_noise ~ 0 ~ color_noise
+  }
+
   if (display && phase_ == TRAIN){
     cv::imshow("Final", cv_img);
   }
@@ -486,13 +493,13 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
         if (has_mean_file) {
           int mean_index = (c * img_height + h) * img_width + w;
           transformed_data[top_index] =
-            (pixel - mean[mean_index]) * scale;
+            (pixel - mean[mean_index] + random_color_noise[c]) * scale;
         } else {
           if (has_mean_values) {
             transformed_data[top_index] =
-              (pixel - mean_values_[c]) * scale;
+              (pixel - mean_values_[c] + random_color_noise[c]) * scale;
           } else {
-            transformed_data[top_index] = pixel * scale;
+            transformed_data[top_index] = (pixel + random_color_noise[c]) * scale;
           }
         }
       }
