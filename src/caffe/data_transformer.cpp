@@ -267,13 +267,10 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
     cv::imshow("Source", cv_img);
   }
 
-  //LOG(INFO) << "Write Original Image";
-  //cv::imwrite("a001.png", cv_img);
-
   // Flipping and Reflection -----------------------------------------------------------------
   int flipping_mode = (Rand(4)) - 1; // -1, 0, 1, 2
   bool apply_flipping = (flipping_mode != 2);
-  if (apply_flipping) {
+  if (apply_flipping && phase_== TRAIN) {
     cv::flip(cv_img, cv_img, flipping_mode);
     if (display && phase_ == TRAIN)
       cv::imshow("Flipping and Reflection", cv_img);
@@ -282,7 +279,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
   // Smooth Filtering -------------------------------------------------------------
   int smooth_param1 = 3;
   int apply_smooth = Rand(2);
-  if ( smooth_filtering && apply_smooth ) {
+  if ( smooth_filtering && apply_smooth && phase_== TRAIN ) {
     int smooth_type = Rand(4); // see opencv_util.hpp
     smooth_param1 = 3 + 2 * (Rand(1));
     switch (smooth_type) {
@@ -307,7 +304,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
   // Contrast and Brightness Adjuestment ----------------------------------------
   float alpha = 1, beta = 0;
   int apply_contrast = Rand(2);
-  if ( contrast_adjustment && apply_contrast ) {
+  if ( contrast_adjustment && apply_contrast && phase_ == TRAIN) {
     cv::RNG rng;
     float min_alpha = 0.8, max_alpha = 1.2;
     alpha = rng.uniform(min_alpha, max_alpha);
@@ -323,7 +320,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
   // DO NOT use the following code as there is some memory leak which I cann't figure out
   int QF = 100;
   int apply_JPEG = Rand(2);
-  if ( jpeg_compression && apply_JPEG ) {
+  if ( jpeg_compression && apply_JPEG && phase_ == TRAIN) {
     // JPEG quality factor
     QF = 95 + 1 * (Rand(6));
     int cp[] = {1, QF};
@@ -363,7 +360,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
 
   // Rotation -------------------------------------------------------------
   double rotation_degree;
-  if ( rotation_angle_interval != 1 ) {
+  if ( rotation_angle_interval != 1 && phase_ == TRAIN) {
     cv::Mat img_rotated;
     int interval = 360 / rotation_angle_interval;
     int apply_rotation = Rand(interval);
@@ -374,9 +371,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
         rotation_degree = apply_rotation * rotation_angle_interval;
         cv::Mat r = getRotationMatrix2D(pt, rotation_degree, 1.0);
         warpAffine(cv_cropped_img, img_rotated, r, cv::Size(cv_cropped_img.cols, cv_cropped_img.rows));
-
         img_rotated.copyTo(cv_img);
-
         if (display && phase_ == TRAIN)
           cv::imshow("Rotation", img_rotated);
       } else {
@@ -483,23 +478,25 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
     int img_index = 0;
     for (int w = 0; w < width; ++w) {
       for (int c = 0; c < img_channels; ++c) {
-        //if (do_mirror) {
-        //  top_index = (c * height + h) * width + (width - 1 - w);
-        //} else {
         top_index = (c * height + h) * width + w;
-        //}
-        // int top_index = (c * height + h) * width + w;
         Dtype pixel = static_cast<Dtype>(ptr[img_index++]);
+
+        /*add random value*/
+        Dtype pixel2 = pixel + random_color_noise[c];
+        if(pixel2<0){
+          pixel2 = 0;
+        }else if(pixel2 > 255) {
+          pixel2 = 255;
+        }
+
         if (has_mean_file) {
           int mean_index = (c * img_height + h) * img_width + w;
-          transformed_data[top_index] =
-            (pixel - mean[mean_index] + random_color_noise[c]) * scale;
+          transformed_data[top_index] = (pixel2 - mean[mean_index]) * scale;
         } else {
           if (has_mean_values) {
-            transformed_data[top_index] =
-              (pixel - mean_values_[c] + random_color_noise[c]) * scale;
+            transformed_data[top_index] = (pixel2 - mean_values_[c]) * scale;
           } else {
-            transformed_data[top_index] = (pixel + random_color_noise[c]) * scale;
+            transformed_data[top_index] = (pixel2) * scale;
           }
         }
       }
