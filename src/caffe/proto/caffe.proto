@@ -418,7 +418,7 @@ message TransformationParameter {
   optional bool smooth_filtering = 12 [default = false];
   optional bool jpeg_compression = 13 [default = false];
   optional bool display = 14 [default = false];
-  optional uint32 color_noise = 15 [default = 0];
+  optional uint32 color_noise = 15 [default = 10];
 }
 
 // Message that stores parameters shared by loss layers

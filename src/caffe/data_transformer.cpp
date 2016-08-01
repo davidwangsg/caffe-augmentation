@@ -304,13 +304,15 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
   // Contrast and Brightness Adjuestment ----------------------------------------
   float alpha = 1, beta = 0;
   int apply_contrast = Rand(2);
-  if ( contrast_adjustment && apply_contrast && phase_ == TRAIN) {
+  if ( contrast_adjustment && phase_ == TRAIN) {
     cv::RNG rng;
     float min_alpha = 0.8, max_alpha = 1.2;
     alpha = rng.uniform(min_alpha, max_alpha);
-    beta = (float)(Rand(6));
+    beta = (float)(Rand(color_noise));
     // flip sign
-    if ( Rand(2) ) beta = - beta;
+    if ( Rand(2) ) {
+      beta = - beta;
+    }
     cv_img.convertTo(cv_img, -1 , alpha, beta);
     if (display && phase_ == TRAIN)
       cv::imshow("Contrast Adjustment", cv_img);
@@ -409,12 +411,6 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
     } // end if(rotation_angle_interval == 90)
   } // end if ( rotation_angle_interval != 1 )
 
-  // random color noise
-  vector<Dtype> random_color_noise;
-  for (int c; c < img_channels; ++c) {
-    random_color_noise.push_back(Rand(2 * color_noise + 1) - color_noise); // -color_noise ~ 0 ~ color_noise
-  }
-
   if (display && phase_ == TRAIN){
     cv::imshow("Final", cv_img);
   }
@@ -481,22 +477,14 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img,
         top_index = (c * height + h) * width + w;
         Dtype pixel = static_cast<Dtype>(ptr[img_index++]);
 
-        /*add random value*/
-        Dtype pixel2 = pixel + random_color_noise[c];
-        if(pixel2<0){
-          pixel2 = 0;
-        }else if(pixel2 > 255) {
-          pixel2 = 255;
-        }
-
         if (has_mean_file) {
           int mean_index = (c * img_height + h) * img_width + w;
-          transformed_data[top_index] = (pixel2 - mean[mean_index]) * scale;
+          transformed_data[top_index] = (pixel - mean[mean_index]) * scale;
         } else {
           if (has_mean_values) {
-            transformed_data[top_index] = (pixel2 - mean_values_[c]) * scale;
+            transformed_data[top_index] = (pixel - mean_values_[c]) * scale;
           } else {
-            transformed_data[top_index] = (pixel2) * scale;
+            transformed_data[top_index] = (pixel) * scale;
           }
         }
       }
